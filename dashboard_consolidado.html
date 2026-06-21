@@ -235,6 +235,34 @@ footer { text-align: center; padding: 20px 28px; font-size: 11px; color: var(--m
     </div>
 
     <button class="btn-clear-all" onclick="clearAllFilters()">✕ Limpiar todo</button>
+
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <div class="filter-label">Año</div>
+      <select class="filter-select" id="filterYear" onchange="applyFilters()" style="min-width:100px">
+        <option value="">Todos</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-label">Mes</div>
+      <select class="filter-select" id="filterMonth" onchange="applyFilters()" style="min-width:130px">
+        <option value="">Todos</option>
+        <option value="1">Enero</option>
+        <option value="2">Febrero</option>
+        <option value="3">Marzo</option>
+        <option value="4">Abril</option>
+        <option value="5">Mayo</option>
+        <option value="6">Junio</option>
+        <option value="7">Julio</option>
+        <option value="8">Agosto</option>
+        <option value="9">Septiembre</option>
+        <option value="10">Octubre</option>
+        <option value="11">Noviembre</option>
+        <option value="12">Diciembre</option>
+      </select>
+    </div>
   </div>
 
   <!-- KPIs -->
@@ -408,6 +436,22 @@ function buildGVOptions() {
       <input type="checkbox" value="${g}" onchange="toggleGV(this)">
       GV ${Math.round(g)}
     </label>`).join('');
+
+  // Populate years from Despiece
+  const years = [...new Set(allRows.map(r => {
+    const d = r['Despiece']; if (!d) return null;
+    const date = new Date(d);
+    return isNaN(date) ? null : date.getFullYear();
+  }).filter(Boolean))].sort((a,b) => b-a);
+
+  const yrSel = document.getElementById('filterYear');
+  yrSel.innerHTML = '<option value="">Todos</option>';
+  years.forEach(y => {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    if (y === new Date().getFullYear()) opt.selected = true;
+    yrSel.appendChild(opt);
+  });
 }
 
 function toggleGV(cb) {
@@ -440,6 +484,8 @@ function clearAllFilters() {
   clearGV();
   document.getElementById('filterEstado').value = '';
   document.getElementById('filterSearch').value = '';
+  document.getElementById('filterYear').value = new Date().getFullYear();
+  document.getElementById('filterMonth').value = '';
   applyFilters();
 }
 
@@ -471,6 +517,9 @@ async function loadData() {
 function getFiltered() {
   const estado = document.getElementById('filterEstado').value;
   const q = document.getElementById('filterSearch').value.toLowerCase().trim();
+  const year = document.getElementById('filterYear').value;
+  const month = document.getElementById('filterMonth').value;
+
   return allRows.filter(r => {
     if (selectedGVs.size > 0 && !selectedGVs.has(String(r['Grupo de vendedores']))) return false;
     if (estado && r['Estado SAP'] !== estado) return false;
@@ -478,6 +527,12 @@ function getFiltered() {
       const obra = (r['SIT_NAME']||'').toLowerCase();
       const cliente = (r['Nombre del solicitante']||'').toLowerCase();
       if (!obra.includes(q) && !cliente.includes(q)) return false;
+    }
+    if (year || month) {
+      const d = r['Despiece'] ? new Date(r['Despiece']) : null;
+      if (!d || isNaN(d)) return false;
+      if (year && d.getFullYear() !== parseInt(year)) return false;
+      if (month && (d.getMonth() + 1) !== parseInt(month)) return false;
     }
     return true;
   });
