@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Pedidos · Diaco</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --border: #e2e8f0; --border2: #cbd5e1;
+  --accent: #e8401a; --text: #0f172a; --text2: #475569; --muted: #94a3b8;
+  --green: #16a34a; --green-light: #f0fdf4;
+  --amber: #d97706; --amber-light: #fffbeb;
+  --blue: #2563eb;  --blue-light: #eff6ff;
+  --header-bg: #1e293b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; font-size: 14px; }
+
+header {
+  background: var(--header-bg); padding: 0 28px; height: 58px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-dot { width: 10px; height: 10px; background: var(--accent); border-radius: 50%; }
+.logo-text { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: #fff; }
+.logo-text span { color: #f97316; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.last-update { font-size: 11px; color: #94a3b8; }
+.btn-refresh {
+  background: var(--accent); color: white; border: none;
+  padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity 0.2s;
+}
+.btn-refresh:hover { opacity: 0.88; }
+
+#loadingScreen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: calc(100vh - 58px); gap: 14px;
+}
+.spinner { width: 36px; height: 36px; border: 3px solid #e2e8f0; border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: var(--text2); font-size: 13px; }
+
+#errorScreen {
+  display: none; flex-direction: column; align-items: center;
+  justify-content: center; min-height: calc(100vh - 58px); gap: 16px; padding: 32px;
+}
+.error-card { background: var(--surface); border: 1px solid #fecaca; border-radius: 12px; padding: 32px 40px; max-width: 480px; text-align: center; }
+.error-icon { font-size: 40px; margin-bottom: 12px; }
+.error-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: #dc2626; margin-bottom: 8px; }
+.error-msg { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 16px; }
+.error-code { font-size: 11px; color: var(--muted); font-family: monospace; }
+
+#dashboard { display: none; }
+main { padding: 24px 28px 48px; max-width: 1440px; margin: 0 auto; }
+
+/* FILTROS */
+.filters-bar {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 20px;
+  display: flex; align-items: flex-start; gap: 16px;
+  margin-bottom: 20px; flex-wrap: wrap;
+}
+.filter-group { display: flex; flex-direction: column; gap: 5px; }
+.filter-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+
+/* GV MULTI-SELECT */
+.gv-dropdown-wrap { position: relative; }
+.gv-trigger {
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 6px 32px 6px 10px; font-size: 13px; font-family: 'Inter', sans-serif;
+  color: var(--text); background: var(--bg); cursor: pointer;
+  min-width: 220px; text-align: left; display: flex; align-items: center;
+  justify-content: space-between; gap: 8px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.gv-trigger::after { content: '▾'; font-size: 10px; color: var(--muted); position: absolute; right: 10px; }
+.gv-dropdown {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  z-index: 100; min-width: 220px; max-height: 260px; overflow-y: auto;
+  padding: 6px 0;
+}
+.gv-dropdown.open { display: block; }
+.gv-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; cursor: pointer; font-size: 13px;
+  transition: background 0.1s;
+}
+.gv-option:hover { background: var(--bg); }
+.gv-option input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.gv-clear { padding: 6px 14px; font-size: 11px; color: var(--accent); cursor: pointer; border-top: 1px solid var(--border); margin-top: 4px; }
+
+.filter-select {
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 6px 10px; font-size: 13px; font-family: 'Inter', sans-serif;
+  color: var(--text); background: var(--bg); cursor: pointer; min-width: 180px;
+}
+.filter-search {
+  border: 1px solid var(--border2); border-radius: 7px;
+  padding: 6px 10px; font-size: 13px; font-family: 'Inter', sans-serif;
+  color: var(--text); background: var(--bg); min-width: 220px;
+}
+.filter-search::placeholder { color: var(--muted); }
+.btn-clear-all { font-size: 12px; color: var(--accent); cursor: pointer; background: none; border: none; font-family: 'Inter', sans-serif; font-weight: 500; align-self: flex-end; padding-bottom: 7px; }
+.filter-divider { width: 1px; height: 40px; background: var(--border); align-self: center; }
+
+/* KPIs */
+.kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 20px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--kpi-color); }
+.kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; }
+.kpi-value { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; color: var(--kpi-color); line-height: 1; }
+.kpi-sub { font-size: 11px; color: var(--muted); }
+
+/* CHARTS */
+.charts-row { display: grid; gap: 16px; margin-bottom: 16px; }
+.charts-row.col-3-2 { grid-template-columns: 3fr 2fr; }
+.charts-row.col-2 { grid-template-columns: 1fr 1fr; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.card-title { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
+.card-badge { font-size: 11px; padding: 3px 8px; border-radius: 99px; background: var(--bg); color: var(--muted); font-weight: 500; border: 1px solid var(--border); }
+
+.status-pills { display: flex; flex-direction: column; gap: 12px; }
+.pill-row { display: flex; align-items: center; gap: 10px; }
+.pill-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pill-name { font-size: 12px; color: var(--text2); flex: 1; }
+.pill-bar-wrap { flex: 2; height: 5px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+.pill-bar { height: 100%; border-radius: 3px; }
+.pill-count { font-size: 12px; font-weight: 600; width: 36px; text-align: right; }
+.pill-pct { font-size: 11px; color: var(--muted); width: 34px; text-align: right; }
+
+/* TABLE */
+.table-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.table-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.table-title { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; }
+.table-count { font-size: 11px; color: var(--muted); }
+.table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead { position: sticky; top: 0; z-index: 10; }
+thead th { background: #f8fafc; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+tbody tr:hover { background: #f8fafc; }
+tbody tr:last-child { border-bottom: none; }
+tbody td { padding: 9px 14px; color: var(--text); vertical-align: middle; }
+.td-obra { max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.td-cliente { max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text2); }
+.td-titulo { max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text2); font-size: 12px; }
+.td-peso { font-weight: 600; white-space: nowrap; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.badge-subido  { background: var(--green-light); color: var(--green); }
+.badge-verif   { background: var(--amber-light); color: var(--amber); }
+.badge-copia   { background: var(--blue-light);  color: var(--blue);  }
+.badge-anulado { background: #fef2f2; color: #dc2626; }
+
+footer { text-align: center; padding: 20px 28px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); background: var(--surface); margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <div class="logo-text">Pedidos <span>Diaco</span> · Estado del día</div>
+  </div>
+  <div class="header-right">
+    <span class="last-update" id="lastUpdate"></span>
+    <button class="btn-refresh" onclick="loadData()">🔄 Actualizar</button>
+  </div>
+</header>
+
+<div id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">Cargando datos…</div>
+</div>
+
+<div id="errorScreen">
+  <div class="error-card">
+    <div class="error-icon">⚠️</div>
+    <div class="error-title">No se encontró el archivo de datos</div>
+    <div class="error-msg">
+      El archivo <strong>datos.json</strong> no está disponible.<br><br>
+      Corre el script Python y sube el <strong>datos.json</strong> generado a la misma carpeta donde está este HTML.
+    </div>
+    <div class="error-code" id="errorCode"></div>
+  </div>
+</div>
+
+<div id="dashboard">
+<main>
+
+  <!-- FILTROS -->
+  <div class="filters-bar">
+
+    <div class="filter-group">
+      <div class="filter-label">Grupo de vendedores</div>
+      <div class="gv-dropdown-wrap">
+        <button class="gv-trigger" id="gvTrigger" onclick="toggleGVDropdown(event)">
+          Todos los grupos
+        </button>
+        <div class="gv-dropdown" id="gvDropdown">
+          <div id="gvOptions"></div>
+          <div class="gv-clear" onclick="clearGV()">✕ Limpiar selección</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <div class="filter-label">Estado SAP</div>
+      <select class="filter-select" id="filterEstado" onchange="applyFilters()">
+        <option value="">Todos los estados</option>
+        <option value="Subido a SAP">Subido a SAP</option>
+        <option value="En verificación">En verificación</option>
+        <option value="COPIA">COPIA</option>
+      </select>
+    </div>
+
+    <div class="filter-divider"></div>
+
+    <div class="filter-group">
+      <div class="filter-label">Buscar</div>
+      <input class="filter-search" id="filterSearch" type="text" placeholder="🔍  Obra o cliente…" oninput="applyFilters()">
+    </div>
+
+    <button class="btn-clear-all" onclick="clearAllFilters()">✕ Limpiar todo</button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi" style="--kpi-color:#e8401a">
+      <div class="kpi-label">Total planos</div>
+      <div class="kpi-value" id="kpiTotal">—</div>
+      <div class="kpi-sub">registros</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#16a34a">
+      <div class="kpi-label">Subidos a SAP</div>
+      <div class="kpi-value" id="kpiSubidos">—</div>
+      <div class="kpi-sub" id="kpiSubidosPct">—</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#d97706">
+      <div class="kpi-label">En verificación</div>
+      <div class="kpi-value" id="kpiVerif">—</div>
+      <div class="kpi-sub">requieren revisión</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#2563eb">
+      <div class="kpi-label">Copias</div>
+      <div class="kpi-value" id="kpiCopia">—</div>
+      <div class="kpi-sub">sin número SAP</div>
+    </div>
+    <div class="kpi" style="--kpi-color:#7c3aed">
+      <div class="kpi-label">Peso SAP</div>
+      <div class="kpi-value" id="kpiPeso">—</div>
+      <div class="kpi-sub">toneladas</div>
+    </div>
+  </div>
+
+  <!-- GRÁFICAS FILA 1 -->
+  <div class="charts-row col-3-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Top 10 obras por peso SAP</div>
+        <div class="card-badge">Toneladas (kg SAP / 1000)</div>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="obrasChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Estado SAP</div>
+        <div class="card-badge" id="badgeEstado">—</div>
+      </div>
+      <div style="position:relative;height:150px;margin-bottom:16px"><canvas id="estadoChart"></canvas></div>
+      <div class="status-pills" id="statusPills"></div>
+    </div>
+  </div>
+
+  <!-- GRÁFICAS FILA 2 -->
+  <div class="charts-row col-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Peso SAP por grupo de vendedores</div>
+        <div class="card-badge">Toneladas</div>
+      </div>
+      <div style="position:relative;height:220px"><canvas id="gvChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Estado SAP por grupo de vendedores</div>
+        <div class="card-badge">Cantidad de planos</div>
+      </div>
+      <div style="position:relative;height:220px"><canvas id="gvEstadoChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- TABLA -->
+  <div class="table-section">
+    <div class="table-header">
+      <div class="table-title">Detalle de planos</div>
+      <div class="table-count" id="tableCount">—</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>N° Plano</th>
+            <th>Obra</th>
+            <th>Cliente</th>
+            <th>Título del plano</th>
+            <th>GV</th>
+            <th>Peso SAP (kg)</th>
+            <th>Estado SAP</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+<footer>Dashboard Pedidos Diaco · Datos actualizados por el equipo de digitación</footer>
+</div>
+
+<script>
+const JSON_URL = "https://raw.githubusercontent.com/pedidoscota-sudo/dashboard-diaco/main/datos.json";
+const ESTADO_COLORS = {'Subido a SAP':'#16a34a','En verificación':'#d97706','COPIA':'#2563eb'};
+const PALETTE = ['#e8401a','#2563eb','#16a34a','#7c3aed','#d97706','#0891b2','#be185d','#059669','#9333ea','#ea580c'];
+
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = 'Inter';
+Chart.defaults.font.size = 11;
+
+let allRows = [];
+let selectedGVs = new Set();
+let obrasChart, estadoChart, gvChart, gvEstadoChart;
+
+function fmt(n) { return Math.round(n).toLocaleString('es-CO'); }
+function fmtT(n) { return (n/1000).toLocaleString('es-CO',{minimumFractionDigits:1,maximumFractionDigits:1}); }
+function isAnulado(r) { return /anulado/i.test(r['Título plano']||''); }
+
+// ── Dropdown GV ──
+function toggleGVDropdown(e) {
+  e.stopPropagation();
+  document.getElementById('gvDropdown').classList.toggle('open');
+}
+document.addEventListener('click', () => document.getElementById('gvDropdown')?.classList.remove('open'));
+
+function buildGVOptions() {
+  const gvs = [...new Set(allRows.map(r=>r['Grupo de vendedores']).filter(Boolean))].sort((a,b)=>a-b);
+  document.getElementById('gvOptions').innerHTML = gvs.map(g => `
+    <label class="gv-option">
+      <input type="checkbox" value="${g}" onchange="toggleGV(this)">
+      GV ${Math.round(g)}
+    </label>`).join('');
+}
+
+function toggleGV(cb) {
+  const val = cb.value;
+  if (cb.checked) selectedGVs.add(val);
+  else selectedGVs.delete(val);
+  updateGVTrigger();
+  applyFilters();
+}
+
+function updateGVTrigger() {
+  const btn = document.getElementById('gvTrigger');
+  if (selectedGVs.size === 0) {
+    btn.textContent = 'Todos los grupos';
+  } else if (selectedGVs.size === 1) {
+    btn.textContent = 'GV ' + Math.round([...selectedGVs][0]);
+  } else {
+    btn.textContent = selectedGVs.size + ' grupos seleccionados';
+  }
+}
+
+function clearGV() {
+  selectedGVs.clear();
+  document.querySelectorAll('#gvOptions input').forEach(cb => cb.checked = false);
+  updateGVTrigger();
+  applyFilters();
+}
+
+function clearAllFilters() {
+  clearGV();
+  document.getElementById('filterEstado').value = '';
+  document.getElementById('filterSearch').value = '';
+  applyFilters();
+}
+
+// ── Cargar datos ──
+async function loadData() {
+  document.getElementById('loadingScreen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('errorScreen').style.display = 'none';
+
+  try {
+    const res = await fetch(JSON_URL + '?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    allRows = data.planos || [];
+
+    document.getElementById('lastUpdate').textContent = 'Actualizado: ' + (data.actualizado || '—');
+    buildGVOptions();
+    applyFilters();
+
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+  } catch(err) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('errorScreen').style.display = 'flex';
+    document.getElementById('errorCode').textContent = err.message;
+  }
+}
+
+function getFiltered() {
+  const estado = document.getElementById('filterEstado').value;
+  const q = document.getElementById('filterSearch').value.toLowerCase().trim();
+  return allRows.filter(r => {
+    if (selectedGVs.size > 0 && !selectedGVs.has(String(r['Grupo de vendedores']))) return false;
+    if (estado && r['Estado SAP'] !== estado) return false;
+    if (q) {
+      const obra = (r['SIT_NAME']||'').toLowerCase();
+      const cliente = (r['Nombre del solicitante']||'').toLowerCase();
+      if (!obra.includes(q) && !cliente.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function applyFilters() {
+  const rows = getFiltered();
+  renderKPIs(rows);
+  renderCharts(rows);
+  renderTable(rows);
+}
+
+function renderKPIs(rows) {
+  const total = rows.length;
+  const subidos = rows.filter(r=>r['Estado SAP']==='Subido a SAP').length;
+  const verif   = rows.filter(r=>r['Estado SAP']==='En verificación').length;
+  const copia   = rows.filter(r=>r['Estado SAP']==='COPIA').length;
+  const pesoSAP = rows.reduce((s,r)=>s+(parseFloat(r['Peso SAP (kg)'])||0),0);
+
+  document.getElementById('kpiTotal').textContent = fmt(total);
+  document.getElementById('kpiSubidos').textContent = fmt(subidos);
+  document.getElementById('kpiSubidosPct').textContent = total?((subidos/total*100).toFixed(1)+'% del total'):'—';
+  document.getElementById('kpiVerif').textContent = fmt(verif);
+  document.getElementById('kpiCopia').textContent = fmt(copia);
+  document.getElementById('kpiPeso').textContent = fmtT(pesoSAP);
+  document.getElementById('badgeEstado').textContent = fmt(total)+' planos';
+}
+
+function renderCharts(rows) {
+  // Top obras por peso SAP
+  const obraW={};
+  rows.forEach(r=>{
+    const o=r['SIT_NAME']; if(!o) return;
+    obraW[o]=(obraW[o]||0)+(parseFloat(r['Peso SAP (kg)'])||0);
+  });
+  const topObras=Object.entries(obraW).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  if(obrasChart) obrasChart.destroy();
+  obrasChart=new Chart(document.getElementById('obrasChart').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:topObras.map(o=>o[0].length>28?o[0].slice(0,26)+'…':o[0]),
+      datasets:[{data:topObras.map(o=>+(o[1]/1000).toFixed(1)),backgroundColor:PALETTE,borderRadius:5,borderSkipped:false}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('es-CO',{minimumFractionDigits:1})} T`}}},
+      scales:{x:{grid:{display:false},ticks:{maxRotation:38,font:{size:10}}},y:{grid:{color:'#f1f5f9'},ticks:{callback:v=>v.toLocaleString('es-CO')}}}}
+  });
+
+  // Estado donut
+  const estadoCounts={};
+  rows.forEach(r=>{const e=r['Estado SAP']||'Sin estado'; estadoCounts[e]=(estadoCounts[e]||0)+1;});
+  const eEntries=Object.entries(estadoCounts);
+
+  if(estadoChart) estadoChart.destroy();
+  estadoChart=new Chart(document.getElementById('estadoChart').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:eEntries.map(e=>e[0]),
+          datasets:[{data:eEntries.map(e=>e[1]),backgroundColor:eEntries.map(e=>ESTADO_COLORS[e[0]]||'#94a3b8'),borderColor:'#fff',borderWidth:3,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}`}}}}
+  });
+
+  const total=rows.length;
+  document.getElementById('statusPills').innerHTML=eEntries.map(([name,count])=>{
+    const pct=total?(count/total*100).toFixed(1):0;
+    const color=ESTADO_COLORS[name]||'#94a3b8';
+    return `<div class="pill-row">
+      <div class="pill-dot" style="background:${color}"></div>
+      <div class="pill-name">${name}</div>
+      <div class="pill-bar-wrap"><div class="pill-bar" style="width:${pct}%;background:${color}"></div></div>
+      <div class="pill-count">${fmt(count)}</div>
+      <div class="pill-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+
+  // GV peso SAP
+  const gvW={};
+  rows.forEach(r=>{const g=r['Grupo de vendedores'];if(!g)return;gvW[g]=(gvW[g]||0)+(parseFloat(r['Peso SAP (kg)'])||0);});
+  const topGV=Object.entries(gvW).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  if(gvChart) gvChart.destroy();
+  gvChart=new Chart(document.getElementById('gvChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:topGV.map(g=>'GV '+Math.round(g[0])),
+          datasets:[{data:topGV.map(g=>+(g[1]/1000).toFixed(1)),backgroundColor:PALETTE,borderRadius:5,borderSkipped:false}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x.toLocaleString('es-CO',{minimumFractionDigits:1})} T`}}},
+      scales:{x:{grid:{color:'#f1f5f9'}},y:{grid:{display:false}}}}
+  });
+
+  // GV estado stacked
+  const gvList=[...new Set(rows.map(r=>r['Grupo de vendedores']).filter(Boolean))].sort((a,b)=>a-b);
+  const estados=['Subido a SAP','En verificación','COPIA'];
+
+  if(gvEstadoChart) gvEstadoChart.destroy();
+  gvEstadoChart=new Chart(document.getElementById('gvEstadoChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:gvList.map(g=>'GV '+Math.round(g)),
+          datasets:estados.map(e=>({label:e,data:gvList.map(g=>rows.filter(r=>r['Grupo de vendedores']==g&&r['Estado SAP']==e).length),backgroundColor:ESTADO_COLORS[e]+'cc',borderRadius:3,borderSkipped:false}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,font:{size:10}}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{maxRotation:35,font:{size:10}}},y:{stacked:true,grid:{color:'#f1f5f9'}}}}
+  });
+}
+
+function renderTable(rows) {
+  document.getElementById('tableCount').textContent=fmt(rows.length)+' planos';
+  const display=rows.slice(0,500);
+  document.getElementById('tableBody').innerHTML=display.map(r=>`
+    <tr>
+      <td style="font-family:monospace;font-size:11px;color:#64748b">${r['N° plano']||'—'}</td>
+      <td class="td-obra" title="${r['SIT_NAME']||''}">${r['SIT_NAME']||'—'}</td>
+      <td class="td-cliente" title="${r['Nombre del solicitante']||''}">${r['Nombre del solicitante']||'—'}</td>
+      <td class="td-titulo" title="${r['Título plano']||''}">${r['Título plano']||'—'}</td>
+      <td style="color:#64748b">${r['Grupo de vendedores']?'GV '+Math.round(r['Grupo de vendedores']):'—'}</td>
+      <td class="td-peso">${fmt(parseFloat(r['Peso SAP (kg)'])||0)} kg</td>
+      <td>${badgeHtml(r['Estado SAP'],r)}</td>
+    </tr>`).join('');
+  if(rows.length>500)
+    document.getElementById('tableBody').innerHTML+=
+      `<tr><td colspan="7" style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Mostrando 500 de ${fmt(rows.length)} registros. Usa los filtros para reducir.</td></tr>`;
+}
+
+function badgeHtml(estado,r) {
+  if(isAnulado(r)) return '<span class="badge badge-anulado">Anulado</span>';
+  if(estado==='Subido a SAP') return '<span class="badge badge-subido">Subido a SAP</span>';
+  if(estado==='En verificación') return '<span class="badge badge-verif">En verificación</span>';
+  if(estado==='COPIA') return '<span class="badge badge-copia">COPIA</span>';
+  return `<span class="badge" style="background:#f1f5f9;color:#64748b">${estado||'—'}</span>`;
+}
+
+loadData();
+</script>
+</body>
+</html>
