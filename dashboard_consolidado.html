@@ -122,6 +122,7 @@ main { padding: 24px 28px 48px; max-width: 1440px; margin: 0 auto; }
 /* CHARTS */
 .charts-row { display: grid; gap: 16px; margin-bottom: 16px; }
 .charts-row.col-3-2 { grid-template-columns: 3fr 2fr; }
+.charts-row.col-3 { grid-template-columns: 1fr 1fr 1fr; }
 .charts-row.col-2 { grid-template-columns: 1fr 1fr; }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
 .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
@@ -264,13 +265,20 @@ footer { text-align: center; padding: 20px 28px; font-size: 11px; color: var(--m
   </div>
 
   <!-- GRÁFICAS FILA 1 -->
-  <div class="charts-row col-3-2">
+  <div class="charts-row col-3">
     <div class="card">
       <div class="card-header">
         <div class="card-title">Top 10 obras por peso SAP</div>
-        <div class="card-badge">Toneladas (kg SAP / 1000)</div>
+        <div class="card-badge">Toneladas</div>
       </div>
       <div style="position:relative;height:260px"><canvas id="obrasChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Top 10 constructoras por peso SAP</div>
+        <div class="card-badge">Toneladas</div>
+      </div>
+      <div style="position:relative;height:260px"><canvas id="invChart"></canvas></div>
     </div>
     <div class="card">
       <div class="card-header">
@@ -312,8 +320,9 @@ footer { text-align: center; padding: 20px 28px; font-size: 11px; color: var(--m
           <tr>
             <th>N° Plano</th>
             <th>Obra</th>
-            <th>Cliente</th>
+            <th>Constructora (INV_NAME)</th>
             <th>Título del plano</th>
+            <th>Doc. Ventas</th>
             <th>GV</th>
             <th>Peso SAP (kg)</th>
             <th>Estado SAP</th>
@@ -339,7 +348,7 @@ Chart.defaults.font.size = 11;
 
 let allRows = [];
 let selectedGVs = new Set();
-let obrasChart, estadoChart, gvChart, gvEstadoChart;
+let obrasChart, estadoChart, gvChart, gvEstadoChart, invChart;
 
 function fmt(n) { return Math.round(n).toLocaleString('es-CO'); }
 function fmtT(n) { return (n/1000).toLocaleString('es-CO',{minimumFractionDigits:1,maximumFractionDigits:1}); }
@@ -478,6 +487,26 @@ function renderCharts(rows) {
       scales:{x:{grid:{display:false},ticks:{maxRotation:38,font:{size:10}}},y:{grid:{color:'#f1f5f9'},ticks:{callback:v=>v.toLocaleString('es-CO')}}}}
   });
 
+  // Top constructoras por peso SAP (INV_NAME)
+  const invW={};
+  rows.forEach(r=>{
+    const o=r['INV_NAME']; if(!o) return;
+    invW[o]=(invW[o]||0)+(parseFloat(r['Peso SAP (kg)'])||0);
+  });
+  const topInv=Object.entries(invW).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  if(invChart) invChart.destroy();
+  invChart=new Chart(document.getElementById('invChart').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:topInv.map(o=>o[0].length>28?o[0].slice(0,26)+'…':o[0]),
+      datasets:[{data:topInv.map(o=>+(o[1]/1000).toFixed(1)),backgroundColor:PALETTE,borderRadius:5,borderSkipped:false}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y.toLocaleString('es-CO',{minimumFractionDigits:1})} T`}}},
+      scales:{x:{grid:{display:false},ticks:{maxRotation:38,font:{size:10}}},y:{grid:{color:'#f1f5f9'},ticks:{callback:v=>v.toLocaleString('es-CO')}}}}
+  });
+
   // Estado donut
   const estadoCounts={};
   rows.forEach(r=>{const e=r['Estado SAP']||'Sin estado'; estadoCounts[e]=(estadoCounts[e]||0)+1;});
@@ -542,15 +571,16 @@ function renderTable(rows) {
     <tr>
       <td style="font-family:monospace;font-size:11px;color:#64748b">${r['N° plano']||'—'}</td>
       <td class="td-obra" title="${r['SIT_NAME']||''}">${r['SIT_NAME']||'—'}</td>
-      <td class="td-cliente" title="${r['Nombre del solicitante']||''}">${r['Nombre del solicitante']||'—'}</td>
+      <td class="td-cliente" title="${r['INV_NAME']||''}">${r['INV_NAME']||'—'}</td>
       <td class="td-titulo" title="${r['Título plano']||''}">${r['Título plano']||'—'}</td>
+      <td style="font-family:monospace;font-size:11px;color:#64748b">${r['Documento de ventas']||'—'}</td>
       <td style="color:#64748b">${r['Grupo de vendedores']?'GV '+Math.round(r['Grupo de vendedores']):'—'}</td>
       <td class="td-peso">${fmt(parseFloat(r['Peso SAP (kg)'])||0)} kg</td>
       <td>${badgeHtml(r['Estado SAP'],r)}</td>
     </tr>`).join('');
   if(rows.length>500)
     document.getElementById('tableBody').innerHTML+=
-      `<tr><td colspan="7" style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Mostrando 500 de ${fmt(rows.length)} registros. Usa los filtros para reducir.</td></tr>`;
+      `<tr><td colspan="8" style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Mostrando 500 de ${fmt(rows.length)} registros. Usa los filtros para reducir.</td></tr>`;
 }
 
 function badgeHtml(estado,r) {
