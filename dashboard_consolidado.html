@@ -146,7 +146,20 @@ main { padding: 24px 28px 48px; max-width: 1440px; margin: 0 auto; }
 .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 thead { position: sticky; top: 0; z-index: 10; }
-thead th { background: #f8fafc; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+thead th { background: #f8fafc; text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; position: relative; user-select: none; }
+thead th .th-inner { display: flex; align-items: center; gap: 4px; cursor: default; }
+thead th .th-filter-btn { background: none; border: none; cursor: pointer; font-size: 11px; color: var(--muted); padding: 0; line-height: 1; transition: color 0.1s; }
+thead th .th-filter-btn:hover, thead th .th-filter-btn.active { color: var(--accent); }
+.col-filter-drop { display: none; position: fixed; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 2000; min-width: 220px; max-width: 300px; padding: 8px 0; }
+.col-filter-drop.open { display: block; }
+.col-filter-search { margin: 6px 10px 4px; padding: 5px 8px; border: 1px solid var(--border2); border-radius: 6px; font-size: 12px; width: calc(100% - 20px); font-family: 'Inter', sans-serif; box-sizing: border-box; }
+.col-filter-options { max-height: 200px; overflow-y: auto; padding: 2px 0; }
+.col-filter-option { display: flex; align-items: center; gap: 8px; padding: 5px 12px; cursor: pointer; font-size: 12px; color: var(--text); }
+.col-filter-option:hover { background: var(--bg); }
+.col-filter-option input { accent-color: var(--accent); cursor: pointer; width: 13px; height: 13px; }
+.col-filter-actions { display: flex; gap: 6px; padding: 8px 10px 2px; border-top: 1px solid var(--border); margin-top: 4px; }
+.col-filter-btn-ok { flex: 1; background: var(--accent); color: white; border: none; padding: 6px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+.col-filter-btn-clear { flex: 1; background: none; color: var(--text2); border: 1px solid var(--border2); padding: 6px; border-radius: 6px; font-size: 12px; cursor: pointer; font-family: 'Inter', sans-serif; }
 tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
 tbody tr:hover { background: #f0f9ff; }
 tbody tr.selected { background: #dbeafe !important; border-left: 3px solid var(--blue); }
@@ -361,19 +374,30 @@ footer { text-align: center; padding: 20px 28px; font-size: 11px; color: var(--m
       <table>
         <thead>
           <tr>
-            <th>N° Plano</th>
-            <th>Obra</th>
-            <th>Constructora (INV_NAME)</th>
-            <th>Título del plano</th>
-            <th>Doc. Ventas</th>
-            <th>GV</th>
-            <th>Peso SAP (kg)</th>
-            <th>Estado SAP</th>
-            <th>Motivo de rechazo</th>
+            <th><div class="th-inner">Fecha <button class="th-filter-btn" id="fb-fecha" onclick="openColFilter(event,'fecha','Despiece')">▼</button></div></th>
+            <th><div class="th-inner">N° Plano <button class="th-filter-btn" id="fb-plano" onclick="openColFilter(event,'plano','N° plano')">▼</button></div></th>
+            <th><div class="th-inner">Obra <button class="th-filter-btn" id="fb-obra" onclick="openColFilter(event,'obra','SIT_NAME')">▼</button></div></th>
+            <th><div class="th-inner">Constructora <button class="th-filter-btn" id="fb-inv" onclick="openColFilter(event,'inv','INV_NAME')">▼</button></div></th>
+            <th><div class="th-inner">Título del plano <button class="th-filter-btn" id="fb-titulo" onclick="openColFilter(event,'titulo','Título plano')">▼</button></div></th>
+            <th><div class="th-inner">Doc. Ventas <button class="th-filter-btn" id="fb-doc" onclick="openColFilter(event,'doc','Documento de ventas')">▼</button></div></th>
+            <th><div class="th-inner">GV <button class="th-filter-btn" id="fb-gv" onclick="openColFilter(event,'gv','Grupo de vendedores')">▼</button></div></th>
+            <th><div class="th-inner">Peso SAP (kg) <button class="th-filter-btn" id="fb-peso" onclick="openColFilter(event,'peso','Peso SAP (kg)')">▼</button></div></th>
+            <th><div class="th-inner">Estado SAP <button class="th-filter-btn" id="fb-estado" onclick="openColFilter(event,'estado','Estado SAP')">▼</button></div></th>
+            <th><div class="th-inner">Motivo de rechazo <button class="th-filter-btn" id="fb-rechazo" onclick="openColFilter(event,'rechazo','Motivo de rechazo')">▼</button></div></th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- COLUMN FILTER DROPDOWN -->
+  <div class="col-filter-drop" id="colFilterDrop">
+    <input class="col-filter-search" id="colFilterSearch" type="text" placeholder="Buscar..." oninput="filterColOptions()">
+    <div class="col-filter-options" id="colFilterOptions"></div>
+    <div class="col-filter-actions">
+      <button class="col-filter-btn-ok" onclick="applyColFilter()">✓ Aplicar</button>
+      <button class="col-filter-btn-clear" onclick="clearColFilter()">✕ Limpiar</button>
     </div>
   </div>
 
@@ -489,7 +513,124 @@ function clearAllFilters() {
   applyFilters();
 }
 
-// ── Cargar datos ──
+// ── Column Filters (Excel-style) ──
+let colFilters = {}; // { fieldKey: Set of selected values }
+let activeColField = null;
+let activeColKey = null;
+
+function openColFilter(e, key, field) {
+  e.stopPropagation();
+  const drop = document.getElementById('colFilterDrop');
+
+  // If same column clicked again, close
+  if (activeColKey === key && drop.classList.contains('open')) {
+    drop.classList.remove('open');
+    activeColKey = null;
+    return;
+  }
+
+  activeColKey = key;
+  activeColField = field;
+
+  // Get unique values from current filtered rows (ignoring this col's filter)
+  const rows = getFilteredExcept(key);
+  let vals = [...new Set(rows.map(r => {
+    let v = r[field];
+    if (v === null || v === undefined) return '(Vacío)';
+    if (field === 'Grupo de vendedores' && v) return 'GV ' + Math.round(v);
+    return String(v).trim() || '(Vacío)';
+  }))].sort();
+
+  const selected = colFilters[key] || new Set();
+  document.getElementById('colFilterSearch').value = '';
+  document.getElementById('colFilterOptions').innerHTML = vals.map(v => `
+    <label class="col-filter-option">
+      <input type="checkbox" value="${v}" ${selected.size === 0 || selected.has(v) ? 'checked' : ''}>
+      ${v}
+    </label>`).join('');
+
+  // Position dropdown
+  const rect = e.target.getBoundingClientRect();
+  drop.style.top = (rect.bottom + 4) + 'px';
+  drop.style.left = Math.min(rect.left, window.innerWidth - 310) + 'px';
+  drop.classList.add('open');
+
+  // Mark button active
+  document.querySelectorAll('.th-filter-btn').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  if (selected.size > 0) e.target.classList.add('active');
+}
+
+function filterColOptions() {
+  const q = document.getElementById('colFilterSearch').value.toLowerCase();
+  document.querySelectorAll('#colFilterOptions .col-filter-option').forEach(opt => {
+    opt.style.display = opt.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function applyColFilter() {
+  const checked = [...document.querySelectorAll('#colFilterOptions input:checked')].map(i => i.value);
+  const all = [...document.querySelectorAll('#colFilterOptions input')].map(i => i.value);
+  if (checked.length === all.length) {
+    delete colFilters[activeColKey];
+  } else {
+    colFilters[activeColKey] = new Set(checked);
+  }
+  document.getElementById('colFilterDrop').classList.remove('open');
+  updateFilterBtnStates();
+  applyFilters();
+}
+
+function clearColFilter() {
+  delete colFilters[activeColKey];
+  document.getElementById('colFilterDrop').classList.remove('open');
+  updateFilterBtnStates();
+  applyFilters();
+}
+
+function updateFilterBtnStates() {
+  const map = { fecha:'Despiece', plano:'N° plano', obra:'SIT_NAME', inv:'INV_NAME', titulo:'Título plano', doc:'Documento de ventas', gv:'Grupo de vendedores', peso:'Peso SAP (kg)', estado:'Estado SAP', rechazo:'Motivo de rechazo' };
+  Object.entries(map).forEach(([key]) => {
+    const btn = document.getElementById('fb-' + key);
+    if (btn) btn.classList.toggle('active', !!colFilters[key] && colFilters[key].size > 0);
+  });
+}
+
+function getFilteredExcept(exceptKey) {
+  // Same as getFiltered but ignores one column filter
+  const estado = document.getElementById('filterEstado').value;
+  const q = document.getElementById('filterSearch').value.toLowerCase().trim();
+  const year = document.getElementById('filterYear').value;
+  const month = document.getElementById('filterMonth').value;
+  const fieldMap = { fecha:'Despiece', plano:'N° plano', obra:'SIT_NAME', inv:'INV_NAME', titulo:'Título plano', doc:'Documento de ventas', gv:'Grupo de vendedores', peso:'Peso SAP (kg)', estado:'Estado SAP', rechazo:'Motivo de rechazo' };
+
+  return allRows.filter(r => {
+    if (selectedGVs.size > 0 && !selectedGVs.has(String(r['Grupo de vendedores']))) return false;
+    if (estado && r['Estado SAP'] !== estado) return false;
+    if (q) { const obra=(r['SIT_NAME']||'').toLowerCase(); const cli=(r['Nombre del solicitante']||'').toLowerCase(); if(!obra.includes(q)&&!cli.includes(q)) return false; }
+    if (year||month) { const d=r['Despiece']?new Date(r['Despiece']):null; if(!d||isNaN(d)) return false; if(year&&d.getFullYear()!==parseInt(year)) return false; if(month&&(d.getMonth()+1)!==parseInt(month)) return false; }
+    // Apply all col filters except the one being opened
+    for (const [key, vals] of Object.entries(colFilters)) {
+      if (key === exceptKey) continue;
+      const field = fieldMap[key];
+      let v = r[field];
+      if (v === null || v === undefined) v = '(Vacío)';
+      else if (field === 'Grupo de vendedores' && v) v = 'GV ' + Math.round(v);
+      else v = String(v).trim() || '(Vacío)';
+      if (!vals.has(v)) return false;
+    }
+    return true;
+  });
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', e => {
+  const drop = document.getElementById('colFilterDrop');
+  if (drop && !drop.contains(e.target) && !e.target.classList.contains('th-filter-btn')) {
+    drop.classList.remove('open');
+    activeColKey = null;
+  }
+});
 async function loadData() {
   document.getElementById('loadingScreen').style.display = 'flex';
   document.getElementById('dashboard').style.display = 'none';
@@ -519,20 +660,20 @@ function getFiltered() {
   const q = document.getElementById('filterSearch').value.toLowerCase().trim();
   const year = document.getElementById('filterYear').value;
   const month = document.getElementById('filterMonth').value;
+  const fieldMap = { fecha:'Despiece', plano:'N° plano', obra:'SIT_NAME', inv:'INV_NAME', titulo:'Título plano', doc:'Documento de ventas', gv:'Grupo de vendedores', peso:'Peso SAP (kg)', estado:'Estado SAP', rechazo:'Motivo de rechazo' };
 
   return allRows.filter(r => {
     if (selectedGVs.size > 0 && !selectedGVs.has(String(r['Grupo de vendedores']))) return false;
     if (estado && r['Estado SAP'] !== estado) return false;
-    if (q) {
-      const obra = (r['SIT_NAME']||'').toLowerCase();
-      const cliente = (r['Nombre del solicitante']||'').toLowerCase();
-      if (!obra.includes(q) && !cliente.includes(q)) return false;
-    }
-    if (year || month) {
-      const d = r['Despiece'] ? new Date(r['Despiece']) : null;
-      if (!d || isNaN(d)) return false;
-      if (year && d.getFullYear() !== parseInt(year)) return false;
-      if (month && (d.getMonth() + 1) !== parseInt(month)) return false;
+    if (q) { const obra=(r['SIT_NAME']||'').toLowerCase(); const cli=(r['Nombre del solicitante']||'').toLowerCase(); if(!obra.includes(q)&&!cli.includes(q)) return false; }
+    if (year||month) { const d=r['Despiece']?new Date(r['Despiece']):null; if(!d||isNaN(d)) return false; if(year&&d.getFullYear()!==parseInt(year)) return false; if(month&&(d.getMonth()+1)!==parseInt(month)) return false; }
+    for (const [key, vals] of Object.entries(colFilters)) {
+      const field = fieldMap[key];
+      let v = r[field];
+      if (v === null || v === undefined) v = '(Vacío)';
+      else if (field === 'Grupo de vendedores' && v) v = 'GV ' + Math.round(v);
+      else v = String(v).trim() || '(Vacío)';
+      if (!vals.has(v)) return false;
     }
     return true;
   });
@@ -666,6 +807,7 @@ function renderTable(rows) {
   const display=rows.slice(0,500);
   document.getElementById('tableBody').innerHTML=display.map(r=>`
     <tr data-doc="${r['Documento de ventas']||''}" onclick="selectPedido('${r['Documento de ventas']||''}', 'Doc. ${r['Documento de ventas']||'—'} · ${(r['SIT_NAME']||'').substring(0,30)}')" class="${selectedPedido && String(r['Documento de ventas'])===selectedPedido?'selected':''}">
+      <td style="font-size:11px;color:#64748b;white-space:nowrap">${r['Despiece'] ? new Date(r['Despiece']).toLocaleDateString('es-CO') : '—'}</td>
       <td style="font-family:monospace;font-size:11px;color:#64748b">${r['N° plano']||'—'}</td>
       <td class="td-obra" title="${r['SIT_NAME']||''}">${r['SIT_NAME']||'—'}</td>
       <td class="td-cliente" title="${r['INV_NAME']||''}">${r['INV_NAME']||'—'}</td>
@@ -678,7 +820,7 @@ function renderTable(rows) {
     </tr>`).join('');
   if(rows.length>500)
     document.getElementById('tableBody').innerHTML+=
-      `<tr><td colspan="9" style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Mostrando 500 de ${fmt(rows.length)} registros. Usa los filtros para reducir.</td></tr>`;
+      `<tr><td colspan="10" style="text-align:center;padding:12px;color:#94a3b8;font-size:12px">Mostrando 500 de ${fmt(rows.length)} registros. Usa los filtros para reducir.</td></tr>`;
 }
 
 function badgeHtml(estado,r) {
